@@ -279,6 +279,26 @@
     font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 1.3rem;
   }
 
+  .more-toggle {
+    display: flex; align-items: center; gap: 0.35rem; justify-content: center;
+    width: 100%; margin-top: 0.9rem; padding: 0.55rem; background: none; border: none;
+    border-top: 1px dashed var(--line, #ddd); cursor: pointer;
+    font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; color: var(--ink-muted, #666);
+  }
+  .more-toggle:hover { color: var(--ink, #222); }
+  .more-toggle-arrow { display: inline-block; transition: transform 0.15s ease; }
+  .more-toggle[aria-expanded="true"] .more-toggle-arrow { transform: rotate(180deg); }
+  .more-box { margin-top: 0.4rem; }
+  .more-box[hidden] { display: none; }
+  .more-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0.32rem 0; border-bottom: 1px solid var(--line, #eee);
+    font-family: var(--font-body); font-size: 0.82rem;
+  }
+  .more-row:last-child { border-bottom: none; }
+  .more-row span { color: var(--ink-faint, #888); }
+  .more-row b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink, #222); }
+
   .banner {
     border-radius: 10px;
     padding: 0.7rem 0.85rem;
@@ -705,6 +725,21 @@
         <p class="li-label">Interés a pagar</p>
         <p class="li-value" id="r-interes">—</p>
       </div>
+
+      <button type="button" class="more-toggle" id="more-toggle-btn" aria-expanded="false">
+        <span>Mostrar más</span>
+        <span class="more-toggle-arrow" aria-hidden="true">▾</span>
+      </button>
+      <div class="more-box" id="more-box" hidden>
+        <div class="more-row"><span>Precio de venta</span><b id="r-precio-venta">—</b></div>
+        <div class="more-row"><span>Costo de envío</span><b id="r-costo-envio">—</b></div>
+        <div class="more-row"><span>IVA</span><b id="r-iva">—</b></div>
+        <div class="more-row"><span>Precio total</span><b id="r-precio-total">—</b></div>
+        <div class="more-row"><span>Depósito entregado hoy</span><b id="r-deposito-hoy">—</b></div>
+        <div class="more-row"><span>Saldo a financiar</span><b id="r-saldo-a-financiar">—</b></div>
+        <div class="more-row"><span>Pago mínimo</span><b id="r-pago-minimo">—</b></div>
+        <div class="more-row"><span>Número de mensualidades</span><b id="r-num-mensualidades">—</b></div>
+      </div>
     </section>
     </div>
 
@@ -919,6 +954,7 @@
   // Aumento de "precio alzado" (realce): por tramo de precio base, salvo los sets de cocina
   // (los 9 definidos en SET_GIFTS_BY_KEY) que siempre suben un monto fijo.
   var REALCE_TIERS = [
+    { min: 0, max: 9999, add: 5000 },
     { min: 10000, max: 19000, add: 3000 },
     { min: 19001, max: 35000, add: 5000 },
     { min: 35001, max: 43000, add: 7000 }
@@ -1172,6 +1208,21 @@
       return;
     }
 
+    // El Set de 18 y el Set de 15 piezas piden un anticipo mínimo del 40% del precio de venta.
+    var MIN_ANTICIPO_SETS = ["set de 18 piezas", "set de 15 piezas"];
+    var requiresMinAnticipo = productNames.some(function (n) {
+      return MIN_ANTICIPO_SETS.indexOf(n.trim().toLowerCase()) !== -1;
+    });
+    if (requiresMinAnticipo) {
+      var minAnticipoRequerido = precio * 0.4;
+      if (anticipo < minAnticipoRequerido - 0.5) {
+        resultEl.hidden = true;
+        statusLine.textContent = "El Set de 18 y el Set de 15 piezas piden un anticipo mínimo del 40% del precio de venta (" + fmt(minAnticipoRequerido) + " en este caso).";
+        statusLine.className = "status-line warn";
+        return;
+      }
+    }
+
     var interes = (monto * meses + anticipo) - (precio + adeudo);
     var isShortTerm = msiOn || meses <= 9;
     // La promoción propia de un set solo aplica si se dio exactamente un producto (ese set).
@@ -1230,8 +1281,32 @@
     document.getElementById("r-regalo-note").textContent = termNote + matchNote + realceNote;
     document.getElementById("r-interes").textContent = fmt(interes);
 
+    // ---------- Recuadro "Mostrar más" ----------
+    var precioVenta = Math.round(precio / 1.16);
+    var iva = precio * 0.16;
+    var precioTotal = precio;
+    var depositoHoy = anticipo;
+    var saldoAFinanciar = precioTotal - depositoHoy;
+    document.getElementById("r-precio-venta").textContent = fmt(precioVenta);
+    document.getElementById("r-costo-envio").textContent = fmt(0);
+    document.getElementById("r-iva").textContent = fmt(iva);
+    document.getElementById("r-precio-total").textContent = fmt(precioTotal);
+    document.getElementById("r-deposito-hoy").textContent = fmt(depositoHoy);
+    document.getElementById("r-saldo-a-financiar").textContent = fmt(saldoAFinanciar);
+    document.getElementById("r-pago-minimo").textContent = fmt(monto);
+    document.getElementById("r-num-mensualidades").textContent = meses;
+
     setBanner("", false);
   }
+
+  var moreToggleBtn = document.getElementById("more-toggle-btn");
+  var moreBox = document.getElementById("more-box");
+  moreToggleBtn.addEventListener("click", function () {
+    var isOpen = !moreBox.hidden;
+    moreBox.hidden = isOpen;
+    moreToggleBtn.setAttribute("aria-expanded", isOpen ? "false" : "true");
+    moreToggleBtn.querySelector("span").textContent = isOpen ? "Mostrar más" : "Mostrar menos";
+  });
 
   elCliente.addEventListener("input", compute);
 
