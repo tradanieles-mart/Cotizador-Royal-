@@ -1129,8 +1129,15 @@
 
     var meses = mesesRaw === null ? null : Math.max(1, Math.min(maxMeses, Math.round(mesesRaw)));
 
+    var MIN_ANTICIPO_SETS = ["set de 18 piezas", "set de 15 piezas"];
+    var requiresMinAnticipo = productNames.some(function (n) {
+      return MIN_ANTICIPO_SETS.indexOf(n.trim().toLowerCase()) !== -1;
+    });
+
     if (precio !== null && precio > 0) {
-      anticipoNote.textContent = "Sugerido: 15% (" + fmt(precio * 0.15) + "). En clientes nuevos, el mínimo sugerido es 6% (" + fmt(precio * 0.06) + ").";
+      anticipoNote.textContent = requiresMinAnticipo
+        ? "Para el Set de 18 y el Set de 15 piezas se sugiere un anticipo del 40% (" + fmt(precio * 0.4) + ")."
+        : "Sugerido: 15% (" + fmt(precio * 0.15) + "). En clientes nuevos, el mínimo sugerido es 6% (" + fmt(precio * 0.06) + ").";
     } else {
       anticipoNote.textContent = "";
     }
@@ -1208,20 +1215,8 @@
       return;
     }
 
-    // El Set de 18 y el Set de 15 piezas piden un anticipo mínimo del 40% del precio de venta.
-    var MIN_ANTICIPO_SETS = ["set de 18 piezas", "set de 15 piezas"];
-    var requiresMinAnticipo = productNames.some(function (n) {
-      return MIN_ANTICIPO_SETS.indexOf(n.trim().toLowerCase()) !== -1;
-    });
-    if (requiresMinAnticipo) {
-      var minAnticipoRequerido = precio * 0.4;
-      if (anticipo < minAnticipoRequerido - 0.5) {
-        resultEl.hidden = true;
-        statusLine.textContent = "El Set de 18 y el Set de 15 piezas piden un anticipo mínimo del 40% del precio de venta (" + fmt(minAnticipoRequerido) + " en este caso).";
-        statusLine.className = "status-line warn";
-        return;
-      }
-    }
+    // El Set de 18 y el Set de 15 piezas sugieren un anticipo del 40% (ya avisado arriba,
+    // junto al campo de anticipo; aquí no se bloquea el cálculo).
 
     var interes = (monto * meses + anticipo) - (precio + adeudo);
     var isShortTerm = msiOn || meses <= 9;
@@ -1283,7 +1278,7 @@
 
     // ---------- Recuadro "Mostrar más" ----------
     var precioVenta = Math.round(precio / 1.16);
-    var iva = precio * 0.16;
+    var iva = precioVenta * 0.16;
     var precioTotal = precio;
     var depositoHoy = anticipo;
     var saldoAFinanciar = precioTotal - depositoHoy;
